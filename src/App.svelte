@@ -9,7 +9,7 @@
 	//DOM Binds
 	let selectedArgType, selectedVk, argNameInput
 
-	let lamdenInfo = {wallets: []};
+	$: lamdenInfo = {wallets: []};
 	let txStatus = '';
 	$: kwargs = {
 		to: {
@@ -27,11 +27,11 @@
 	onMount(() => {
 		document.addEventListener('lamdenWalletInfo', (event) => {
 			console.log(`Webpage Wallet Status? ${JSON.stringify(event.detail)}`)
-			lamdenInfo = event.detail;
+			lamdenInfo = {...event.detail};
 		});
 		document.addEventListener('txStatus', (event) => {
 			console.log(`${JSON.stringify(event.detail)}`)
-			txStatus = event.detail
+			txStatus = {...event.detail};
 		});
 
 		return () => {
@@ -41,21 +41,7 @@
 	})
 
 	function sendTx(){
-		/*
-		let contractName = 'currency';
-		let methodName = 'transfer';
-		let kwargs = {}
-		kwargs.to = {
-			type: "address", 
-			value: '384138d6965b32c49e3bec94d3f239f0994ee75dbf9ca59c8698617843e9ef7e'
-		}
-		kwargs.amount = {
-			type: "fixedPoint", 
-			value: 1000
-		}*/
-		console.log(selectedVk)
 		let detail = {senderVk: selectedVk, contractName, methodName, kwargs};
-		console.log(detail)
 
 		document.dispatchEvent(new CustomEvent('signTx', {detail}));
 		clearAllValues();
@@ -115,7 +101,7 @@
 
 
 <main class="flex-col">
-	<h1>Lamden Wallet Integration Test</h1>
+	<h1>Lamden Wallet Integration Example</h1>
 	<div class="tests">
 		<h2>{`Wallet Status?`}</h2>
 		{#if lamdenInfo}
@@ -123,6 +109,9 @@
 			<p>{`Wallet Setup: ${isUndefiend(lamdenInfo.setup) ? '' : lamdenInfo.setup}`}</p>
 			<p>{`Wallet Locked: ${isUndefiend(lamdenInfo.locked) ? '' : lamdenInfo.locked}`}</p>
 			<p>{`Number of Wallets: ${lamdenInfo.wallets.length}`}</p>
+			{#if !isUndefiend(lamdenInfo.currentNetwork)}
+				<p>{`Current Network: ${lamdenInfo.currentNetwork.name}: ${lamdenInfo.currentNetwork.ip}:${lamdenInfo.currentNetwork.port}`}</p>
+			{/if}
 		{/if}
 		<button on:click={getStatus}>Check Status</button>
 	</div>
@@ -207,7 +196,7 @@
 					<label>{`${item}:`}</label>
 					{#if item === 'state_changes' && Object.keys(txStatus.data[item]).length > 0}
 						{#each Object.keys(txStatus.data[item]) as stateChange}
-							<div class="data-value">{JSON.stringify(stateChange)}</div>
+							<div class="data-value">{`${stateChange}: ${JSON.stringify(txStatus.data[item][stateChange])}`}</div>
 						{/each}
 					{:else}
 						<div class="data-value">{JSON.stringify(txStatus.data[item])}</div>
