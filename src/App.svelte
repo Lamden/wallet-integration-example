@@ -4,6 +4,7 @@
 	//Form Binds
 	let contractName = 'currency'; 
 	let methodName = 'transfer';
+	let stampLimit = 50000;
 	let senderVk, argName, argType, argValue
 
 	//DOM Binds
@@ -41,7 +42,7 @@
 	})
 
 	function sendTx(){
-		let detail = {senderVk: selectedVk, contractName, methodName, kwargs};
+		let detail = {senderVk: selectedVk, contractName, methodName, kwargs, stampLimit};
 
 		document.dispatchEvent(new CustomEvent('signTx', {detail}));
 		clearAllValues();
@@ -126,6 +127,10 @@
 			<div class="input-item">
 				<label>{'Method Name:'}</label>
 				<input bind:value={methodName} required/>
+			</div>
+			<div class="input-item">
+				<label>{'Stamp Limit:'}</label>
+				<input bind:value={stampLimit} required/>
 			</div>
 		</div>
 
