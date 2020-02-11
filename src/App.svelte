@@ -12,6 +12,7 @@
 
 	$: lamdenInfo = {wallets: []};
 	let txStatus = '';
+
 	$: kwargs = {
 		to: {
 			type: "address", 
@@ -45,7 +46,6 @@
 		let detail = {senderVk: selectedVk, contractName, methodName, kwargs, stampLimit};
 
 		document.dispatchEvent(new CustomEvent('signTx', {detail}));
-		clearAllValues();
 	}
 
 	function getStatus(){
@@ -56,29 +56,15 @@
 		if (argName === '') return;
 		kwargs[argName] = {
 			type: selectedArgType, 
-			value: argValue
+			value: selectedArgType === 'fixedPoint' ? parseFloat(argValue) : argValue
 		}
 		kwargs = {...kwargs}
-		clearArgValues();
+		argName = argValue = '';
 	}
 
 	function delArg(name){
 		delete kwargs[name]
 		kwargs = {...kwargs}
-	}
-
-	function clearArgValues() {
-		argName = argValue = '';
-	}
-
-	function clearFromValues() {
-		contractName = methodName = senderVk = '';
-	}
-
-	function clearAllValues(){
-		clearArgValues();
-		clearFromValues();
-		kwargs = {};
 	}
 
 	function checkSelectedVk(){
