@@ -1,11 +1,13 @@
 <script>
 	import { onMount } from 'svelte'
 
-	//Form Binds
-	let contractName = 'currency'; 
+	//FORM Binds 
 	let methodName = 'transfer';
+	let networkType = 'testnet'
 	let stampLimit = 50000;
-	let senderVk, argName, argType, argValue
+	let argName, argType, argValue
+	let approveNetwork = 'testnet'
+	let approveContract = 'currency'
 
 	//DOM Binds
 	let selectedArgType, selectedVk, argNameInput
@@ -14,50 +16,92 @@
 	let txStatus = '';
 
 	$: kwargs = {
-		to: {
-			type: "address", 
-			value: '384138d6965b32c49e3bec94d3f239f0994ee75dbf9ca59c8698617843e9ef7e'
-		},
-		amount: {
-			type: "fixedPoint", 
-			value: 1000
-		}
+		to: {type: 'address', value:'57be23d7af186ef946408dbbfb7407b5df4faac4abb856a6e0daf186080fc69d'},
+		amount: {type: 'fixedPoint', value:2}
 	}
 
 	let ArgTypes = ['text', 'address', 'data', 'fixedPoint', 'bool']
 
 	onMount(() => {
+		makeArgs()
 		document.addEventListener('lamdenWalletInfo', (event) => {
-			console.log(`Webpage Wallet Status? ${JSON.stringify(event.detail)}`)
-			lamdenInfo = {...event.detail};
+			console.log(event)
+			if (event.detail.errors) console.log(event.detail.errors)
+			else{
+				console.log(event.detail)
+				lamdenInfo = {...event.detail};
+			}
+
 		});
-		document.addEventListener('txStatus', (event) => {
-			console.log(`${JSON.stringify(event.detail)}`)
-			txStatus = {...event.detail};
+		document.addEventListener('lamdenWalletTxStatus', (event) => {
+			console.log(event.detail)
+			//txStatus = {...event.detail};
 		});
 
 		return () => {
-			document.removeEventListener('lamdenWalletStatus')
-			document.removeEventListener('txStatus')
+			document.removeEventListener('lamdenWalletInfo')
+			document.removeEventListener('lamdenWalletTxStatus')
 		}
 	})
 
-	function sendTx(){
-		let detail = {senderVk: selectedVk, contractName, methodName, kwargs, stampLimit};
+	function connectToWallet(){
+		const charms = [
+			{
+				formatAs: "number",
+				iconPath: "/images/refinery.png",
+				variableName: "balances",
+				key: "<wallet vk>",
+				name: "Current Energy"
+			},
+			{
+				formatAs: "number",
+				iconPath: "/images/factory.png",
+				variableName: "balances",
+				key: "<wallet vk>",
+				name: "Ground Units"
+			}
+		]
+		const detail = JSON.stringify({
+			appName: 'Lamden World',
+			description: 'Welcome to Lamden World!  Please click "approve" to connect your Lamden Wallet to the game.',
+			//contractName: approveContract,
+			contractName: 'currency',
+			//contractName: 'submission',
+			networkType: approveNetwork,
+			preApproval: {
+				stampsToPreApprove: 1000000, 
+				message: 'This game requires a lot of transactions. To streamline the experience we recommed setting a pre-approve amount.'
+			},
+			charms,
+			logo: "/images/flag.png",
+			background: "/images/background.png",
+			reapprove: true,
+			//newKeypair: true
+		})
+		console.log(detail)
+		document.dispatchEvent(new CustomEvent('lamdenWalletConnect', {detail}));
+	}
 
-		document.dispatchEvent(new CustomEvent('signTx', {detail}));
+	function sendTx(){
+		const detail = JSON.stringify({networkType, methodName, kwargs: makeArgs(), stampLimit});
+		document.dispatchEvent(new CustomEvent('lamdenWalletSendTx', {detail}));
+	}
+
+	function makeArgs(){
+		let kwargsObj = {}
+		Object.keys(kwargs).forEach(kwarg => {
+			kwargsObj[kwarg] = kwargs[kwarg].value
+		})
+		return kwargsObj
 	}
 
 	function getStatus(){
-		document.dispatchEvent(new CustomEvent('getLamdenWalletInfo'));
+		document.dispatchEvent(new CustomEvent('lamdenWalletGetInfo'));
 	}
 
 	function addArg(){
 		if (argName === '') return;
-		kwargs[argName] = {
-			type: selectedArgType, 
-			value: selectedArgType === 'fixedPoint' ? parseFloat(argValue) : argValue
-		}
+		kwargs[argName] = selectedArgType === 'fixedPoint' ? parseFloat(argValue) : argValue
 		kwargs = {...kwargs}
 		argName = argValue = '';
 	}
@@ -89,15 +133,30 @@
 
 <main class="flex-col">
 	<h1>Lamden Wallet Integration Example</h1>
+	<div class="flex-row">
+		<div class="input-item">
+			<label>{'Network Name:'}</label>
+			<input bind:value={approveNetwork} required/>
+		</div>
+		<div class="input-item">
+			<label>{'Contract Name:'}</label>
+			<input bind:value={approveContract} required/>
+		</div>
+	</div>
+	<button on:click={connectToWallet}>Request Connection Approval</button>
+
 	<div class="tests">
 		<h2>{`Wallet Status?`}</h2>
 		{#if lamdenInfo}
 			<p>{`Wallet Installed: ${isUndefiend(lamdenInfo.installed) ? '' : lamdenInfo.installed}`}</p>
 			<p>{`Wallet Setup: ${isUndefiend(lamdenInfo.setup) ? '' : lamdenInfo.setup}`}</p>
 			<p>{`Wallet Locked: ${isUndefiend(lamdenInfo.locked) ? '' : lamdenInfo.locked}`}</p>
-			<p>{`Number of Wallets: ${lamdenInfo.wallets.length}`}</p>
-			{#if !isUndefiend(lamdenInfo.currentNetwork)}
-				<p>{`Current Network: ${lamdenInfo.currentNetwork.name}: ${lamdenInfo.currentNetwork.ip}:${lamdenInfo.currentNetwork.port}`}</p>
+			<p>{`Wallet Vk: ${isUndefiend(lamdenInfo.wallets[0]) ? 'None' : lamdenInfo.wallets[0]}`}</p>
+			{#if !isUndefiend(lamdenInfo.approvals)}
+			<h2>{`Contract Authorizations`}</h2>
+				<p>{`Mainnet: ${isUndefiend(lamdenInfo.approvals['mainnet']) ? 'None' : lamdenInfo.approvals['mainnet']}`}</p>
+				<p>{`Testnet: ${isUndefiend(lamdenInfo.approvals['testnet']) ? 'None' : lamdenInfo.approvals['testnet']}`}</p>
+				<p>{`mockchain: ${isUndefiend(lamdenInfo.approvals['mockchain']) ? 'None' : lamdenInfo.approvals['mockchain']}`}</p>
 			{/if}
 		{/if}
 		<button on:click={getStatus}>Check Status</button>
@@ -106,10 +165,6 @@
 	<h2>{`Create Transaction`}</h2>
     <form on:submit|preventDefault={sendTx} target="_self">
 		<div class="flex-row">
-		    <div class="input-item">
-				<label>{'Contract Name:'}</label>
-				<input bind:value={contractName} required/>
-        	</div>
 			<div class="input-item">
 				<label>{'Method Name:'}</label>
 				<input bind:value={methodName} required/>
@@ -121,11 +176,11 @@
 		</div>
 
 		<div class="input-item">
-			<label>{'Sender VK (public key):'}</label>
+			<label>{'Wallet VK (created by the wallet and is specific to this url):'}</label>
 			<select class="vkSelect" bind:value={selectedVk}>
 				<option value={''} selected={true}>{`Select a VK (public key)`}</option>
-				{#each lamdenInfo.wallets as wallet, index}
-					<option value={wallet.vk}>{`${index + 1}: ${wallet.vk}`}</option>
+				{#each lamdenInfo.wallets as vk, index}
+					<option value={vk}>{`${index + 1}: ${vk}`}</option>
 				{/each}
 			</select>
 			<button on:click={checkSelectedVk}>Check Vk</button>
