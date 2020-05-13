@@ -13,6 +13,7 @@
 	//DOM Binds
 	let selectedArgType, selectedVk, argNameInput
 
+	$: walletInstalled = false;
 	$: lamdenInfo = {wallets: []};
 	$: errors = [];
 	let txStatus = '';
@@ -32,6 +33,7 @@
 	onMount(() => {
 		makeArgs()
 		document.addEventListener('lamdenWalletInfo', (event) => {
+			walletInstalled = true;
 			console.log(event)
 			if (event.detail.errors) {
 				errors = event.detail.errors; 
@@ -39,6 +41,7 @@
 			}
 			else{
 				console.log(event.detail)
+				errors= [];
 				lamdenInfo = {...event.detail};
 				if (lamdenInfo.wallets.length > 0 ) {
 					kwargs['key_name'].value = lamdenInfo.wallets[0] + ':time'
@@ -57,11 +60,20 @@
 			txStatus = {...event.detail};
 		});
 
+		checkForWallet()
+
 		return () => {
 			document.removeEventListener('lamdenWalletInfo')
 			document.removeEventListener('lamdenWalletTxStatus')
 		}
 	})
+
+	const checkForWallet = () => {	
+		document.dispatchEvent(new CustomEvent('lamdenWalletGetInfo'));
+		setTimeout(() => {
+			if (!walletInstalled) checkForWallet()
+		}, 1000)
+	}
 
 	function connectToWallet(){
 		const charms = [
@@ -149,154 +161,166 @@
 	}
 	const toggleNewKeypair = () => reapprove ? newKeypair = false : null
 
-	const getMethods = () => {
-
+	const openLink = (url) => {
+        window.open(url, '_blank');
 	}
 </script>
 
 
 <main class="flex-col">
-	<h1>Lamden Wallet Integration Example</h1>
-	{#if errors.length > 0}
-		<div class="errors-box flex-col">
-			{#each errors as error}
-				<p>{error}</p>
-			{/each}
-		</div>
-	{/if}
-	<div class="approval flex-col">
-		<div class="flex-row">
-			<div class="input-item">
-				<label>{'Network Name:'}</label>
-				<input bind:value={approveNetwork} required/>
-			</div>
-			<div class="input-item">
-				<label>{'Contract Name:'}</label>
-				<input bind:value={approveContract} required/>
-			</div>
-		</div>
-		<button on:click={connectToWallet}>Send Approval</button>
-		<div class="flex-row">
-			<lable>reappove conenction</lable>
-			<input type="checkbox" bind:checked={reapprove} on:click={toggleNewKeypair}/>
-			<lable>create new KeyPair</lable>
-			<input type="checkbox" bind:checked={newKeypair} disabled={!reapprove}/>
-		</div>
-	</div>
-
-	<div>
-		<p>{`Hash of sent approval: ${approvalHash}`}</p>
-	</div>
-
-
-	<div class="tests">
-		<h2>{`Wallet Status?`}</h2>
-		{#if lamdenInfo}
-			<p>{`Wallet Installed: ${isUndefiend(lamdenInfo.installed) ? '' : lamdenInfo.installed}`}</p>
-			<p>{`Wallet Setup: ${isUndefiend(lamdenInfo.setup) ? '' : lamdenInfo.setup}`}</p>
-			<p>{`Wallet Locked: ${isUndefiend(lamdenInfo.locked) ? '' : lamdenInfo.locked}`}</p>
-			<p>{`Wallet Vk: ${isUndefiend(lamdenInfo.wallets[0]) ? 'None' : lamdenInfo.wallets[0]}`}</p>
-			{#if !isUndefiend(lamdenInfo.approvals)}
-			<h2>{`Contract Authorizations`}</h2>
-				{#each Object.keys(lamdenInfo.approvals) as approval}
-				<p>{`${approval.toUpperCase()}: Approved Contract is ${lamdenInfo.approvals[approval].contractName} and Approval Hash is ${lamdenInfo.approvals[approval].approvalHash}`}</p>
-				{/each}
-			{/if}
+	<h1>Lamden Wallet Integration Demo</h1>
+	<button 
+		class="install-box flex-row" 
+		class:installed={walletInstalled} 
+		on:click={() => openLink('https://chrome.google.com/webstore/detail/lamden-wallet-browser-ext/fhfffofbcgbjjojdnpcfompojdjjhdim')}>
+		{#if walletInstalled}
+			Wallet Installed
+		{:else}
+			Install Lamden Wallet
 		{/if}
-		<button on:click={getStatus}>Check Status</button>
-	</div>
-
-	<h2>{`Create Transaction`}</h2>
-    <form on:submit|preventDefault={sendTx} target="_self">
-		<div class="flex-row">
-			<div class="input-item">
-				<label>{'Method Name:'}</label>
-				<input bind:value={methodName} required/>
-			</div>
-			<div class="input-item">
-				<label>{'Stamp Limit:'}</label>
-				<input bind:value={stampLimit} required/>
-			</div>
-		</div>
-
-		<div class="input-item">
-			<label>{'Wallet VK (created by the wallet and is specific to this url):'}</label>
-			<select class="vkSelect" bind:value={selectedVk}>
-				<option value={''} selected={true}>{`Select a VK (public key)`}</option>
-				{#each lamdenInfo.wallets as vk, index}
-					<option value={vk}>{`${index + 1}: ${vk}`}</option>
+	</button>
+	{#if walletInstalled}
+		{#if errors.length > 0}
+			<div class="errors-box flex-col">
+				{#each errors as error}
+					<p>{error}</p>
 				{/each}
-			</select>
-			<button on:click={checkSelectedVk}>Check Vk</button>
+			</div>
+		{/if}
+		<div class="approval flex-col">
+			<div class="flex-row">
+				<div class="input-item">
+					<label>{'Network Name:'}</label>
+					<input bind:value={approveNetwork} required/>
+				</div>
+				<div class="input-item">
+					<label>{'Contract Name:'}</label>
+					<input bind:value={approveContract} required/>
+				</div>
+			</div>
+			<button on:click={connectToWallet}>Send Approval</button>
+			<div class="flex-row">
+				<lable>reappove conenction</lable>
+				<input type="checkbox" bind:checked={reapprove} on:click={toggleNewKeypair}/>
+				<lable>create new KeyPair</lable>
+				<input type="checkbox" bind:checked={newKeypair} disabled={!reapprove}/>
+			</div>
 		</div>
 
 		<div>
-			<label>{'Add Kwarg:'}</label>
-			<div class="add-arg">
-				<input bind:this={argNameInput} bind:value={argName} placeholder="Arg Name" />
-				<select bind:value={selectedArgType} >
-					{#each ArgTypes as type}
-						<option value={type} selected={type === 'text'}>{type}</option>
+			<p>{`Hash of sent approval: ${approvalHash}`}</p>
+		</div>
+
+
+		<div class="tests">
+			<h2>{`Wallet Status?`}</h2>
+			<button on:click={getStatus}>Get Wallet Info</button>
+			{#if lamdenInfo}
+				<p>{`Wallet Installed: ${isUndefiend(lamdenInfo.installed) ? '' : lamdenInfo.installed}`}</p>
+				<p>{`Wallet Setup: ${isUndefiend(lamdenInfo.setup) ? '' : lamdenInfo.setup}`}</p>
+				<p>{`Wallet Locked: ${isUndefiend(lamdenInfo.locked) ? '' : lamdenInfo.locked}`}</p>
+				<p>{`Wallet Vk: ${isUndefiend(lamdenInfo.wallets[0]) ? 'None' : lamdenInfo.wallets[0]}`}</p>
+				{#if !isUndefiend(lamdenInfo.approvals)}
+				<h2>{`Contract Authorizations`}</h2>
+					{#each Object.keys(lamdenInfo.approvals) as approval}
+					<p>{`${approval.toUpperCase()}: Approved Contract is ${lamdenInfo.approvals[approval].contractName} and Approval Hash is ${lamdenInfo.approvals[approval].approvalHash}`}</p>
+					{/each}
+				{/if}
+			{/if}
+			
+		</div>
+
+		<h2>{`Create Transaction`}</h2>
+		<form on:submit|preventDefault={sendTx} target="_self">
+			<div class="flex-row">
+				<div class="input-item">
+					<label>{'Method Name:'}</label>
+					<input bind:value={methodName} required/>
+				</div>
+				<div class="input-item">
+					<label>{'Stamp Limit:'}</label>
+					<input bind:value={stampLimit} required/>
+				</div>
+			</div>
+
+			<div class="input-item">
+				<label>{'Wallet VK (created by the wallet and is specific to this url):'}</label>
+				<select class="vkSelect" bind:value={selectedVk}>
+					<option value={''} selected={true}>{`Select a VK (public key)`}</option>
+					{#each lamdenInfo.wallets as vk, index}
+						<option value={vk}>{`${index + 1}: ${vk}`}</option>
 					{/each}
 				</select>
-				<input bind:value={argValue} placeholder="Arg Value" />
-				<button type="button" on:click={addArg}>Add Kwarg</button>
+				<button on:click={checkSelectedVk}>Check Vk</button>
 			</div>
-		</div>
 
-		<div>
-            <label>{'Kwarg List:'}</label>
-			{#if Object.keys(kwargs).length === 0}
-				<p>No Kwargs Added</p>
-			{:else}
-				{#each Object.keys(kwargs) as kwarg}
-					<div class="arg">
-						<div class="arg-heading flex-row">
-							<div class="name flex-col">
-								<label>{kwarg.toUpperCase()}</label>
-							</div>
-							<button class="del-btn"  type="button" on:click={() => delArg(kwarg)}>X</button>	
-						</div>
-						<div>
-							<div class="flex-row">
-								<label>{'TYPE:'}</label>{kwargs[kwarg].type}
-							</div>
-							<div class="flex-row">
-								<label>{'VALUE:'}</label>{kwargs[kwarg].value}
-							</div>	
-						</div>
-					</div>
-				{/each}
-			{/if}
-        </div>
-
-		<input type="submit" value="Send Transaction">
-    </form>
-
-	<h2>{`Transaction Status`}</h2>
-	{#if txStatus !== ''}
-		<div class="flex-row">
-			<label>{`Transaction Status: `}</label>{txStatus.status}
-		</div>
-		
-		<label>{`Transaction Data: `}</label>
-		<div class="tx-data">
-			{#if !isUndefiend(txStatus.data)}
-				{#each Object.keys(txStatus.data) as item}
-					<label>{`${item}:`}</label>
-					{#if item === 'state_changes' && Object.keys(txStatus.data[item]).length > 0}
-						{#each Object.keys(txStatus.data[item]) as stateChange}
-							<div class="data-value">{`${stateChange}: ${JSON.stringify(txStatus.data[item][stateChange])}`}</div>
+			<div>
+				<label>{'Add Kwarg:'}</label>
+				<div class="add-arg">
+					<input bind:this={argNameInput} bind:value={argName} placeholder="Arg Name" />
+					<select bind:value={selectedArgType} >
+						{#each ArgTypes as type}
+							<option value={type} selected={type === 'text'}>{type}</option>
 						{/each}
-					{:else}
-						<div class="data-value">{JSON.stringify(txStatus.data[item])}</div>
-					{/if}
-				{/each}
-			{/if}
-		</div>
+					</select>
+					<input bind:value={argValue} placeholder="Arg Value" />
+					<button type="button" on:click={addArg}>Add Kwarg</button>
+				</div>
+			</div>
+
+			<div>
+				<label>{'Kwarg List:'}</label>
+				{#if Object.keys(kwargs).length === 0}
+					<p>No Kwargs Added</p>
+				{:else}
+					{#each Object.keys(kwargs) as kwarg}
+						<div class="arg">
+							<div class="arg-heading flex-row">
+								<div class="name flex-col">
+									<label>{kwarg.toUpperCase()}</label>
+								</div>
+								<button class="del-btn"  type="button" on:click={() => delArg(kwarg)}>X</button>	
+							</div>
+							<div>
+								<div class="flex-row">
+									<label>{'TYPE:'}</label>{kwargs[kwarg].type}
+								</div>
+								<div class="flex-row">
+									<label>{'VALUE:'}</label>{kwargs[kwarg].value}
+								</div>	
+							</div>
+						</div>
+					{/each}
+				{/if}
+			</div>
+
+			<input type="submit" value="Send Transaction">
+		</form>
+
+		<h2>{`Transaction Status`}</h2>
+		{#if txStatus !== ''}
+			<div class="flex-row">
+				<label>{`Transaction Status: `}</label>{txStatus.status}
+			</div>
+			
+			<label>{`Transaction Data: `}</label>
+			<div class="tx-data">
+				{#if !isUndefiend(txStatus.data)}
+					{#each Object.keys(txStatus.data) as item}
+						<label>{`${item}:`}</label>
+						{#if item === 'state_changes' && Object.keys(txStatus.data[item]).length > 0}
+							{#each Object.keys(txStatus.data[item]) as stateChange}
+								<div class="data-value">{`${stateChange}: ${JSON.stringify(txStatus.data[item][stateChange])}`}</div>
+							{/each}
+						{:else}
+							<div class="data-value">{JSON.stringify(txStatus.data[item])}</div>
+						{/if}
+					{/each}
+				{/if}
+			</div>
+		{/if}
 
 	{/if}
-
 </main>
 
 <style>
@@ -304,6 +328,28 @@
 		padding: 1em;
 		margin: 0 auto;
 		max-width: 1020px;
+	}
+	.install-box{
+		background: #461BC2;
+		color: #eae3ff;
+		width: 260px;
+		margin: 0 auto 1rem auto;
+		padding: 15px;
+		justify-content: center;
+		border-radius: 10px;
+		box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0);
+		font-size: 1.3em;
+	}
+	.install-box:hover{
+		background: rgb(86, 41, 221);
+		box-shadow: 3px 3px 24px -10px rgba(0, 0, 0, 0.904);
+	}
+	.install-box > a{
+		color: #d0d5ff;
+	}
+	.install-box.installed{
+		background: #0fb40f;
+		color: #e0ffe0;
 	}
 	.approval{
 		max-width: 550px;
@@ -315,6 +361,7 @@
 		text-transform: uppercase;
 		font-size: 3em;
 		font-weight: 100;
+		text-align: center;
 	}
 	label{
 		font-weight: 600;
