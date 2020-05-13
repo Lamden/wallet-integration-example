@@ -135,6 +135,13 @@ detail.preApproval: {
     message: 'This dApp requires a lot of transactions. To streamline the experience we recommed setting a pre-approve amount.'
 }
 ```
+### Upgrading Connection Information
+Sometime you will want to make changes to the connection information to add or change charms or maybe even change the contract.
+As part of the "lamdenWalletGetInfo" event you will be returned a hashed value of the wallet's previously approved request.  
+This is an MD5 hash of the JSON string you provided to the user for approval (minus andy "reapprove or newKeypair" options.
+
+You can use this hash to determine if the wallet using your dApp has the most current connection approval, and if not then you can send them a new connection approval with the updated info.  See "RE-approving You Application" below.
+
 
 ### RE-Approving Your Application
 Any subsequent connection requests sent to the Lamden Wallet will bouce back the error **App is already authorized to use &lt;your contract&gt; on &lt;requested network&gt;**
@@ -145,12 +152,15 @@ detail.reapprove = true
 ```
 It could happen that a user deleted the keypair that was created for your dApp previously, and now is trying to connect to your dApp again.  <br>
 In that case you will get this error: <br>
-**Your dDapp was previoulsy approved but no matching vk is currently found in the wallet. Prompt the user to restore their keypair for &lt;previous vk&gt;, or send a "reapprove request" to have another keypair generated.** <br>
+**Your dApp was previously approved but no matching vk is currently found in the wallet. Prompt the user to restore their keypair for vk 'user's key' or add 'reapprove = true, newKeypair = true' to your approve request to have a new keypair generated.** <br>
 
 If you need to generate a new keypair you can specify the newKeypair flag like this. A brand new keypair will be generated in the Lamden Wallet and associated to your dApp.
 ```javascript
 detail.newKeypair = true
 ```
+
+
+
 
 ## Getting Wallet Information
 Wallet Information Details: 
@@ -178,7 +188,7 @@ document.dispatchEvent(new CustomEvent('lamdenWalletGetInfo'));
 | setup | Boolean: If the user has run the Lamden Wallet through the inital setup |
 | locked | Boolean: If the wallet is locked or not |
 | wallets | The Lamden public key your dApp was assigned.  There will only ever be 1 value in this array. |
-| approvals | The contracts you currently have aprroved on which networks |
+| approvals | The contracts you currently have aprroved on which networks along with a hash of the last approved conenction infomation |
 
 ## Sending Transaction Requests
 - Transactions are locked to the name of the contract that was approved durring the connection request.

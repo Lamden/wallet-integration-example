@@ -1,24 +1,31 @@
 <script>
 	import { onMount } from 'svelte'
+	import MD5 from "crypto-js/md5";
 
 	//FORM Binds 
-	let methodName = 'transfer';
+	let methodName = 'set_value';
 	let networkType = 'testnet'
 	let stampLimit = 50000;
 	let argName, argType, argValue
 	let approveNetwork = 'testnet'
-	let approveContract = 'currency'
+	let approveContract = 'con_wallet_testing'
 
 	//DOM Binds
 	let selectedArgType, selectedVk, argNameInput
 
 	$: lamdenInfo = {wallets: []};
+	$: errors = [];
 	let txStatus = '';
+	let approvalHash = '';
+	let reapprove = false;
+	let newKeypair = false;
 
 	$: kwargs = {
-		to: {type: 'address', value:'57be23d7af186ef946408dbbfb7407b5df4faac4abb856a6e0daf186080fc69d'},
-		amount: {type: 'fixedPoint', value:2}
+		key_name: {type: 'text', value:''},
+		key_value: {type: 'text', value: new Date().toLocaleTimeString()}
 	}
+
+	$: contractMethods = null;
 
 	let ArgTypes = ['text', 'address', 'data', 'fixedPoint', 'bool']
 
@@ -26,16 +33,28 @@
 		makeArgs()
 		document.addEventListener('lamdenWalletInfo', (event) => {
 			console.log(event)
-			if (event.detail.errors) console.log(event.detail.errors)
+			if (event.detail.errors) {
+				errors = event.detail.errors; 
+				console.log(event.detail.errors)
+			}
 			else{
 				console.log(event.detail)
 				lamdenInfo = {...event.detail};
+				if (lamdenInfo.wallets.length > 0 ) {
+					kwargs['key_name'].value = lamdenInfo.wallets[0] + ':time'
+					kwargs = {...kwargs}
+				}
+
 			}
 
 		});
 		document.addEventListener('lamdenWalletTxStatus', (event) => {
-			console.log(event.detail)
-			//txStatus = {...event.detail};
+			console.log(event)
+			let detail = event.detail
+			if (detail.status === "error"){
+				errors = detail.data.errors || detail.errors || detail.data.resultInfo.errorInfo
+			}
+			txStatus = {...event.detail};
 		});
 
 		return () => {
@@ -47,42 +66,38 @@
 	function connectToWallet(){
 		const charms = [
 			{
-				formatAs: "number",
-				iconPath: "/images/refinery.png",
-				variableName: "balances",
-				key: "<wallet vk>",
-				name: "Current Energy"
-			},
-			{
-				formatAs: "number",
-				iconPath: "/images/factory.png",
-				variableName: "balances",
-				key: "<wallet vk>",
-				name: "Ground Units"
+				formatAs: "string",
+				iconPath: "/images/thumbsup.png",
+				variableName: "yourState",
+				key: "<wallet vk>:time",
+				name: "Last Updated"
 			}
 		]
-		const detail = JSON.stringify({
-			appName: 'Lamden World',
-			description: 'Welcome to Lamden World!  Please click "approve" to connect your Lamden Wallet to the game.',
-			//contractName: approveContract,
-			contractName: 'currency',
-			//contractName: 'submission',
+		let detail = {
+			appName: 'Integration Testing',
+			description: 'Congrats! Your Dapp sent a successful approval request! Click APPROVE to create a dApp connection.',
+			contractName: approveContract,
 			networkType: approveNetwork,
 			preApproval: {
 				stampsToPreApprove: 1000000, 
-				message: 'This game requires a lot of transactions. To streamline the experience we recommed setting a pre-approve amount.'
+				message: 'Please pre-approve some stamps that we can use for testing.'
 			},
 			charms,
-			logo: "/images/flag.png",
-			background: "/images/background.png",
-			reapprove: true,
-			//newKeypair: true
-		})
-		console.log(detail)
+			logo: "/images/star.png",
+			background: "/images/background.png"
+		}
+		approvalHash = MD5(JSON.stringify(detail)).toString();
+		errors = [];
+		if (reapprove) {
+			detail.reapprove = true
+			if (newKeypair) detail.newKeypair = true
+		}
+		detail = JSON.stringify(detail)
 		document.dispatchEvent(new CustomEvent('lamdenWalletConnect', {detail}));
 	}
 
 	function sendTx(){
+		errors = [];
 		const detail = JSON.stringify({networkType, methodName, kwargs: makeArgs(), stampLimit});
 		document.dispatchEvent(new CustomEvent('lamdenWalletSendTx', {detail}));
 	}
@@ -96,12 +111,17 @@
 	}
 
 	function getStatus(){
+		errors = [];
 		document.dispatchEvent(new CustomEvent('lamdenWalletGetInfo'));
 	}
 
 	function addArg(){
 		if (argName === '') return;
-		kwargs[argName] = selectedArgType === 'fixedPoint' ? parseFloat(argValue) : argValue
+		if (typeof argValue === 'undefined') return
+		kwargs[argName] = {
+			value: selectedArgType === 'fixedPoint' ? parseFloat(argValue) : argValue, 
+			type: selectedArgType
+		}
 		kwargs = {...kwargs}
 		argName = argValue = '';
 	}
@@ -127,23 +147,47 @@
 	function isUndefiend(value){
 		return typeof value === 'undefined';
 	}
+	const toggleNewKeypair = () => reapprove ? newKeypair = false : null
 
+	const getMethods = () => {
+
+	}
 </script>
 
 
 <main class="flex-col">
 	<h1>Lamden Wallet Integration Example</h1>
-	<div class="flex-row">
-		<div class="input-item">
-			<label>{'Network Name:'}</label>
-			<input bind:value={approveNetwork} required/>
+	{#if errors.length > 0}
+		<div class="errors-box flex-col">
+			{#each errors as error}
+				<p>{error}</p>
+			{/each}
 		</div>
-		<div class="input-item">
-			<label>{'Contract Name:'}</label>
-			<input bind:value={approveContract} required/>
+	{/if}
+	<div class="approval flex-col">
+		<div class="flex-row">
+			<div class="input-item">
+				<label>{'Network Name:'}</label>
+				<input bind:value={approveNetwork} required/>
+			</div>
+			<div class="input-item">
+				<label>{'Contract Name:'}</label>
+				<input bind:value={approveContract} required/>
+			</div>
+		</div>
+		<button on:click={connectToWallet}>Send Approval</button>
+		<div class="flex-row">
+			<lable>reappove conenction</lable>
+			<input type="checkbox" bind:checked={reapprove} on:click={toggleNewKeypair}/>
+			<lable>create new KeyPair</lable>
+			<input type="checkbox" bind:checked={newKeypair} disabled={!reapprove}/>
 		</div>
 	</div>
-	<button on:click={connectToWallet}>Request Connection Approval</button>
+
+	<div>
+		<p>{`Hash of sent approval: ${approvalHash}`}</p>
+	</div>
+
 
 	<div class="tests">
 		<h2>{`Wallet Status?`}</h2>
@@ -154,9 +198,9 @@
 			<p>{`Wallet Vk: ${isUndefiend(lamdenInfo.wallets[0]) ? 'None' : lamdenInfo.wallets[0]}`}</p>
 			{#if !isUndefiend(lamdenInfo.approvals)}
 			<h2>{`Contract Authorizations`}</h2>
-				<p>{`Mainnet: ${isUndefiend(lamdenInfo.approvals['mainnet']) ? 'None' : lamdenInfo.approvals['mainnet']}`}</p>
-				<p>{`Testnet: ${isUndefiend(lamdenInfo.approvals['testnet']) ? 'None' : lamdenInfo.approvals['testnet']}`}</p>
-				<p>{`mockchain: ${isUndefiend(lamdenInfo.approvals['mockchain']) ? 'None' : lamdenInfo.approvals['mockchain']}`}</p>
+				{#each Object.keys(lamdenInfo.approvals) as approval}
+				<p>{`${approval.toUpperCase()}: Approved Contract is ${lamdenInfo.approvals[approval].contractName} and Approval Hash is ${lamdenInfo.approvals[approval].approvalHash}`}</p>
+				{/each}
 			{/if}
 		{/if}
 		<button on:click={getStatus}>Check Status</button>
@@ -259,10 +303,15 @@
 	main {
 		padding: 1em;
 		margin: 0 auto;
+		max-width: 1020px;
 	}
-
+	.approval{
+		max-width: 550px;
+		margin: 0 auto;
+		align-items: center;
+	}
 	h1 {
-		color: #ff3e00;
+		color: #461BC2;
 		text-transform: uppercase;
 		font-size: 3em;
 		font-weight: 100;
@@ -322,9 +371,15 @@
 	.data-value{
 		margin-bottom: 1rem;
 	}
-	@media (min-width: 640px) {
-		main {
-			max-width: none;
-		}
+	.errors-box{
+		border: 1px solid #5f0000;
+		text-align: center;
+		margin: 1rem 0;
+	}
+	.errors-box > p{
+		color: red;
+	}
+	input[type=checkbox]{
+		margin: 0 1rem 0 0.5rem; 
 	}
 </style>
